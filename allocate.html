@@ -379,24 +379,64 @@ function openModal(){
 }
 function closeModal(){ modal.style.display="none"; }
 function saveTopic(){
-  saveBtn.disabled=true;
-  topicStatus.className="status yellow";
-  topicStatus.innerText="Submitting…";
-  fetch(BACKEND,{
-    method:"POST",
-    body:new URLSearchParams({
-      action:"saveSeminarTopic",
+  saveBtn.disabled = true;
+  topicStatus.className = "status yellow";
+  topicStatus.innerText = "Submitting…";
+
+  fetch(BACKEND, {
+    method: "POST",
+    body: new URLSearchParams({
+      action: "saveSeminarTopic",
       token,
-      topic:topicInput.value
+      topic: topicInput.value
     })
   })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.status==="SAVED"){
-      topicStatus.className="status green";
-      topicStatus.innerText="Saved successfully";
-      closeBtn.disabled=false;
+  .then(r => r.json())
+  .then(res => {
+
+    saveBtn.disabled = false;
+
+    if (res.status === "SAVED") {
+      topicStatus.className = "status green";
+      topicStatus.innerText = "Saved successfully";
+      closeBtn.disabled = false;
     }
+
+    else if (res.status === "TOO_SHORT") {
+      topicStatus.className = "status red";
+      topicStatus.innerText =
+        "Topic must be at least 10 characters long.";
+    }
+
+    else if (res.status === "NOT_ASSIGNED") {
+      topicStatus.className = "status red";
+      topicStatus.innerText =
+        "You must spin the wheel and get a topic first.";
+    }
+
+    else if (res.status === "LOCKED") {
+      topicStatus.className = "status red";
+      topicStatus.innerText =
+        "Deadline passed. Submission locked.";
+      saveBtn.disabled = true;
+    }
+
+    else if (res.status === "INVALID_SESSION") {
+      topicStatus.className = "status red";
+      topicStatus.innerText =
+        "Session expired. Please login again.";
+    }
+
+    else {
+      topicStatus.className = "status red";
+      topicStatus.innerText =
+        "Unexpected error. Please try again.";
+    }
+  })
+  .catch(() => {
+    saveBtn.disabled = false;
+    topicStatus.className = "status red";
+    topicStatus.innerText = "Network error. Try again.";
   });
 }
 
