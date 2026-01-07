@@ -41,8 +41,11 @@ h2{font-size:14px;text-align:center;color:#555;margin:6px 0 14px;}
   50%{color:#9b59b6;}75%{color:#e67e22;}
   100%{color:#1abc9c;}
 }
-#wheelWrap{display:flex;justify-content:center;margin:18px 0;}
-canvas{max-width:260px}
+#wheelWrap{
+  display:flex;
+  justify-content:center;
+  margin:18px 0;
+}
 button{
   width:100%;
   padding:12px;
@@ -60,10 +63,7 @@ button{
   background:linear-gradient(135deg,#757575,#616161);
   color:#fff;
 }
-button:disabled{
-  background:#999;
-  cursor:not-allowed;
-}
+button:disabled{background:#999;cursor:not-allowed;}
 .status{margin-top:12px;text-align:center;font-size:14px}
 .yellow{color:#f57f17;}
 .green{color:#1b5e20;}
@@ -137,7 +137,7 @@ textarea{
     </div>
 
     <div id="wheelWrap">
-      <canvas id="wheel" width="240" height="240"></canvas>
+      <canvas id="wheel"></canvas>
     </div>
 
     <button id="spinBtn" class="btn-primary" onclick="spin()">Spin the Coin</button>
@@ -179,9 +179,50 @@ const BACKEND =
 const token = new URLSearchParams(location.search).get("token");
 let angle = 0, spinning = false;
 
+/* ---------- RESPONSIVE WHEEL ---------- */
+function resizeWheel(){
+  const maxSize = 240;
+  const minSize = 180;
+  const padding = 60;
+
+  const available = Math.min(window.innerWidth - padding, maxSize);
+  const size = Math.max(minSize, available);
+
+  wheel.width = size;
+  wheel.height = size;
+}
+
+function drawWheel(){
+  const c = wheel.getContext("2d");
+  const size = wheel.width;
+  const r = size / 2 - 10;
+
+  c.clearRect(0, 0, size, size);
+
+  for(let i = 0; i < 9; i++){
+    c.beginPath();
+    c.moveTo(size/2, size/2);
+    c.fillStyle = i % 2 ? "#90caf9" : "#bbdefb";
+    c.arc(
+      size/2,
+      size/2,
+      r,
+      (i * 40 + angle) * Math.PI / 180,
+      ((i + 1) * 40 + angle) * Math.PI / 180
+    );
+    c.fill();
+  }
+}
+
 /* ---------- INIT ---------- */
+resizeWheel();
 drawWheel();
 loadAll();
+
+window.addEventListener("resize", () => {
+  resizeWheel();
+  drawWheel();
+});
 
 /* ---------- LOAD ---------- */
 function loadAll(){
@@ -219,26 +260,54 @@ function loadAll(){
   });
 }
 
-/* ---------- SEMINAR DISPLAY ---------- */
-function showSeminarTopic(topic){
-  if(!topic) return;
-  seminarBox.innerHTML =
-    `<b>Submitted Seminar Topic:</b><br>
-     <span style="color:#1b5e20">"${topic}"</span>`;
-  seminarBox.style.display = "block";
-}
-
-/* ---------- RESULT ---------- */
+/* ---------- DISPLAY ---------- */
 function showResult(res){
   let html=`<b>Assigned Topic:</b><br>${res.project} – ${res.projectName}<br><br><b>Group Members:</b><br>`;
   res.team.forEach((s,i)=>html+=`${i+1}. ${s.name} (${s.roll})<br>`);
   resultBox.innerHTML=html;
   resultBox.style.display="block";
-  seminarBtn.disabled=false;
-  logoutBtn.disabled=false;
 }
 
-/* ---------- SAVE SEMINAR ---------- */
+function showSeminarTopic(topic){
+  seminarBox.innerHTML =
+    `<b>Submitted Seminar Topic:</b><br>
+     <span style="color:#1b5e20">"${topic}"</span>`;
+  seminarBox.style.display="block";
+}
+
+/* ---------- SPIN ---------- */
+function spin(){
+  if(spinning) return;
+  spinning = true;
+  let stop = Math.random()*360 + 2160;
+  let id = setInterval(()=>{
+    angle += 20;
+    drawWheel();
+    if(angle >= stop){
+      clearInterval(id);
+      allocate();
+    }
+  },30);
+}
+
+/* ---------- ASSIGN ---------- */
+function allocate(){
+  fetch(BACKEND,{
+    method:"POST",
+    body:new URLSearchParams({ action:"assign", token })
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    wheelWrap.style.display="none";
+    spinMsg.style.display="none";
+    showResult(res);
+  });
+}
+
+/* ---------- SEMINAR ---------- */
+function openModal(){ modal.style.display="flex"; }
+function closeModal(){ modal.style.display="none"; }
+
 function saveTopic(){
   saveBtn.disabled=true;
   topicStatus.className="status yellow";
@@ -255,14 +324,12 @@ function saveTopic(){
   .then(r=>r.json())
   .then(res=>{
     saveBtn.disabled=false;
-
     if(res.status==="SAVED"){
       topicStatus.className="status green";
       topicStatus.innerText="Saved successfully";
       closeBtn.disabled=false;
       showSeminarTopic(topicInput.value);
-    }
-    else{
+    }else{
       topicStatus.className="status red";
       topicStatus.innerText="Unable to save topic.";
     }
@@ -286,54 +353,6 @@ function startCountdown(deadline){
       `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   },1000);
 }
-
-/* ---------- WHEEL ---------- */
-function drawWheel(){
-  const c=wheel.getContext("2d");
-  c.clearRect(0,0,240,240);
-  for(let i=0;i<9;i++){
-    c.beginPath();
-    c.moveTo(120,120);
-    c.fillStyle=i%2?"#90caf9":"#bbdefb";
-    c.arc(120,120,110,
-      (i*40+angle)*Math.PI/180,
-      ((i+1)*40+angle)*Math.PI/180);
-    c.fill();
-  }
-}
-
-/* ---------- SPIN ---------- */
-function spin(){
-  if(spinning) return;
-  spinning=true;
-  let stop=Math.random()*360+2160;
-  let id=setInterval(()=>{
-    angle+=20;
-    drawWheel();
-    if(angle>=stop){
-      clearInterval(id);
-      allocate();
-    }
-  },30);
-}
-
-/* ---------- ASSIGN ---------- */
-function allocate(){
-  fetch(BACKEND,{
-    method:"POST",
-    body:new URLSearchParams({ action:"assign", token })
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    wheelWrap.style.display="none";
-    spinMsg.style.display="none";
-    showResult(res);
-  });
-}
-
-/* ---------- MODAL ---------- */
-function openModal(){ modal.style.display="flex"; }
-function closeModal(){ modal.style.display="none"; }
 
 /* ---------- LOGOUT ---------- */
 function logout(){
