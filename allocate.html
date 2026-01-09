@@ -24,8 +24,18 @@ body{
   border-radius:16px;
   box-shadow:0 15px 40px rgba(0,0,0,.25);
 }
-h1{font-size:16px;text-align:center;color:#203a43;margin:0;}
-h2{font-size:14px;text-align:center;color:#555;margin:6px 0 14px;}
+h1{
+  font-size:16px;
+  text-align:center;
+  color:#203a43;
+  margin:0;
+}
+h2{
+  font-size:14px;
+  text-align:center;
+  color:#555;
+  margin:6px 0 14px;
+}
 .infoBox{
   background:#f5f7fa;
   border-radius:12px;
@@ -41,7 +51,7 @@ button{
   font-size:15px;
   font-weight:600;
   cursor:pointer;
-  margin-top:16px;
+  margin-top:18px;
 }
 .btn-logout{
   background:#c0392b;
@@ -64,13 +74,20 @@ button:disabled{
 
 <div class="card">
 
-  <h1 id="welcome">Welcome</h1>
+  <!-- DEFAULT WELCOME (IMMEDIATE) -->
+  <h1 id="welcome">Welcome Student</h1>
   <h2>Group Discussion & Seminar (ME3273)</h2>
 
+  <!-- LOADING MESSAGE -->
+  <div id="loadingBox" class="infoBox">
+    <b>Getting details, please wait…</b>
+  </div>
+
+  <!-- FINAL CONTENT -->
   <div id="resultBox" class="infoBox" style="display:none"></div>
   <div id="seminarBox" class="infoBox" style="display:none"></div>
 
-  <button id="logoutBtn" class="btn-logout" onclick="logout()">Logout</button>
+  <button id="logoutBtn" class="btn-logout" disabled onclick="logout()">Logout</button>
 
 </div>
 
@@ -85,57 +102,72 @@ const BACKEND =
 
 const token = new URLSearchParams(location.search).get("token");
 
-/* ---------- LOAD DATA ---------- */
+/* ---------- LOAD ALL DATA TOGETHER ---------- */
 loadAll();
 
 function loadAll(){
 
-  // Dashboard → group details
-  fetch(BACKEND,{
+  const dashboardReq = fetch(BACKEND,{
     method:"POST",
-    body:new URLSearchParams({ action:"dashboard", token })
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.status !== "ASSIGNED"){
-      resultBox.innerHTML =
-        "<b>No group assigned.</b>";
+    body:new URLSearchParams({
+      action:"dashboard",
+      token
+    })
+  }).then(r=>r.json());
+
+  const seminarReq = fetch(BACKEND,{
+    method:"POST",
+    body:new URLSearchParams({
+      action:"getSeminarTopic",
+      token
+    })
+  }).then(r=>r.json());
+
+  Promise.all([dashboardReq, seminarReq])
+    .then(([dash, sem]) => {
+
+      loadingBox.style.display = "none";
+
+      /* ---- DASHBOARD ---- */
+      if(dash.status !== "ASSIGNED"){
+        resultBox.innerHTML =
+          "<b>No group discussion topic assigned.</b>";
+        resultBox.style.display = "block";
+        logoutBtn.disabled = false;
+        return;
+      }
+
+      welcome.innerText =
+        `Welcome ${dash.name} (${dash.roll})`;
+
+      let html =
+        `<b>Assigned Group Discussion Topic:</b><br>
+         ${dash.project} – ${dash.projectName}<br><br>
+         <b>Group Members:</b><br>`;
+
+      dash.team.forEach((s,i)=>{
+        html += `${i+1}. ${s.name} (${s.roll})<br>`;
+      });
+
+      resultBox.innerHTML = html;
       resultBox.style.display = "block";
-      return;
-    }
 
-    welcome.innerText =
-      `Welcome ${res.name} (${res.roll})`;
+      /* ---- SEMINAR TOPIC ---- */
+      if(sem.topic){
+        seminarBox.innerHTML =
+          `<b>Submitted Seminar Topic:</b><br>
+           <span style="color:#1b5e20">
+           "${sem.topic}"
+           </span>`;
+        seminarBox.style.display = "block";
+      }
 
-    let html =
-      `<b>Assigned Group Discussion Topic:</b><br>
-       ${res.project} – ${res.projectName}<br><br>
-       <b>Group Members:</b><br>`;
-
-    res.team.forEach((s,i)=>{
-      html += `${i+1}. ${s.name} (${s.roll})<br>`;
+      logoutBtn.disabled = false;
+    })
+    .catch(()=>{
+      loadingBox.innerHTML =
+        "<b style='color:#b71c1c'>Unable to load details. Please try again.</b>";
     });
-
-    resultBox.innerHTML = html;
-    resultBox.style.display = "block";
-  });
-
-  // Seminar topic (read-only)
-  fetch(BACKEND,{
-    method:"POST",
-    body:new URLSearchParams({ action:"getSeminarTopic", token })
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.topic){
-      seminarBox.innerHTML =
-        `<b>Submitted Seminar Topic:</b><br>
-         <span style="color:#1b5e20">
-         "${res.topic}"
-         </span>`;
-      seminarBox.style.display = "block";
-    }
-  });
 }
 
 /* ---------- LOGOUT ---------- */
@@ -144,7 +176,10 @@ function logout(){
 
   fetch(BACKEND,{
     method:"POST",
-    body:new URLSearchParams({ action:"logout", token })
+    body:new URLSearchParams({
+      action:"logout",
+      token
+    })
   })
   .finally(()=>{
     location.href="login.html";
