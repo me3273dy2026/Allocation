@@ -42,6 +42,7 @@ h2{
   padding:14px;
   margin-top:16px;
   font-size:14px;
+  text-align:center;
 }
 button{
   width:100%;
@@ -74,16 +75,16 @@ button:disabled{
 
 <div class="card">
 
-  <!-- DEFAULT WELCOME (IMMEDIATE) -->
-  <h1 id="welcome">Welcome Student</h1>
+  <!-- WELCOME (HIDDEN INITIALLY) -->
+  <h1 id="welcome" style="display:none"></h1>
   <h2>Group Discussion & Seminar (ME3273)</h2>
 
-  <!-- LOADING MESSAGE -->
+  <!-- LOADING -->
   <div id="loadingBox" class="infoBox">
     <b>Getting details, please wait…</b>
   </div>
 
-  <!-- FINAL CONTENT -->
+  <!-- CONTENT -->
   <div id="resultBox" class="infoBox" style="display:none"></div>
   <div id="seminarBox" class="infoBox" style="display:none"></div>
 
@@ -109,18 +110,12 @@ function loadAll(){
 
   const dashboardReq = fetch(BACKEND,{
     method:"POST",
-    body:new URLSearchParams({
-      action:"dashboard",
-      token
-    })
+    body:new URLSearchParams({ action:"dashboard", token })
   }).then(r=>r.json());
 
   const seminarReq = fetch(BACKEND,{
     method:"POST",
-    body:new URLSearchParams({
-      action:"getSeminarTopic",
-      token
-    })
+    body:new URLSearchParams({ action:"getSeminarTopic", token })
   }).then(r=>r.json());
 
   Promise.all([dashboardReq, seminarReq])
@@ -128,17 +123,19 @@ function loadAll(){
 
       loadingBox.style.display = "none";
 
-      /* ---- DASHBOARD ---- */
       if(dash.status !== "ASSIGNED"){
-        resultBox.innerHTML =
-          "<b>No group discussion topic assigned.</b>";
+        welcome.style.display = "block";
+        welcome.innerText = "Welcome";
+        resultBox.innerHTML = "<b>No group assigned.</b>";
         resultBox.style.display = "block";
         logoutBtn.disabled = false;
         return;
       }
 
+      /* SHOW WELCOME ONLY WHEN DATA IS READY */
       welcome.innerText =
         `Welcome ${dash.name} (${dash.roll})`;
+      welcome.style.display = "block";
 
       let html =
         `<b>Assigned Group Discussion Topic:</b><br>
@@ -152,7 +149,6 @@ function loadAll(){
       resultBox.innerHTML = html;
       resultBox.style.display = "block";
 
-      /* ---- SEMINAR TOPIC ---- */
       if(sem.topic){
         seminarBox.innerHTML =
           `<b>Submitted Seminar Topic:</b><br>
@@ -166,24 +162,18 @@ function loadAll(){
     })
     .catch(()=>{
       loadingBox.innerHTML =
-        "<b style='color:#b71c1c'>Unable to load details. Please try again.</b>";
+        "<b style='color:#b71c1c'>Unable to load details.</b>";
     });
 }
 
 /* ---------- LOGOUT ---------- */
 function logout(){
   logoutBtn.disabled = true;
-
   fetch(BACKEND,{
     method:"POST",
-    body:new URLSearchParams({
-      action:"logout",
-      token
-    })
+    body:new URLSearchParams({ action:"logout", token })
   })
-  .finally(()=>{
-    location.href="login.html";
-  });
+  .finally(()=>location.href="login.html");
 }
 </script>
 
